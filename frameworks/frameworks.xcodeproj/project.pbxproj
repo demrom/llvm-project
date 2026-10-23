@@ -1683,7 +1683,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-all_load",
 					"-F",
 					..,
@@ -1721,7 +1721,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-all_load",
 					"-F",
 					..,
@@ -1752,10 +1752,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/lib";
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.opt";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
@@ -1783,10 +1784,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/lib";
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.opt";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
@@ -1980,7 +1982,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-F",
 					..,
 				);
@@ -2016,7 +2018,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-F",
 					..,
 				);
@@ -2053,7 +2055,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.lldb";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2088,7 +2090,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.lldb";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2122,7 +2124,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-all_load",
 					"-F",
 					..,
@@ -2160,7 +2162,7 @@
 				);
 				OTHER_LDFLAGS = (
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-all_load",
 					"-F",
 					..,
@@ -2318,7 +2320,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-F",
 					..,
 				);
@@ -2355,7 +2357,7 @@
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 					"-F",
 					..,
 				);
@@ -2385,10 +2387,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/lib";
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.llc";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2416,10 +2419,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/lib";
 				OTHER_LDFLAGS = (
 					"-all_load",
 					"-L",
-					"../build${EFFECTIVE_PLATFORM_NAME}/lib",
+					"$(PROJECT_DIR)/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "Nicolas-Holzschuch.llc";
 				PRODUCT_NAME = "$(TARGET_NAME)";

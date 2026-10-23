@@ -74,6 +74,24 @@ jobs:
             cd "build-$SDK/build/Release-$SDK" || exit 1
             tar -czf "$GITHUB_WORKSPACE/$SDK.tar.gz" ar.framework lld.framework llc.framework clang.framework dis.framework libLLVM.framework link.framework lli.framework nm.framework opt.framework lldb.framework
           )
+      - name: Preserve Simulator link inputs on failure
+        if: failure() && matrix.sdk == 'iphonesimulator'
+        run: |
+          inputs=(frameworks ios_system.xcframework ios_error.h bootstrap.sh)
+          for arch in arm64 x86_64; do
+            for item in lib include frameworks.xcodeproj; do
+              path="build-iphonesimulator-$arch/$item"
+              if [ -e "$path" ]; then inputs+=("$path"); fi
+            done
+          done
+          nice -n 15 tar -czf "$GITHUB_WORKSPACE/iphonesimulator-link-inputs.tar.gz" "${inputs[@]}"
+      - uses: actions/upload-artifact@v7
+        if: failure() && matrix.sdk == 'iphonesimulator'
+        with:
+          name: iphonesimulator-link-inputs
+          retention-days: 7
+          if-no-files-found: warn
+          path: iphonesimulator-link-inputs.tar.gz
       - uses: actions/upload-artifact@v7
         if: always()
         with:
