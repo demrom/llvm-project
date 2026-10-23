@@ -63,11 +63,16 @@ jobs:
           monitor_pid=$!
           trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
           bash bootstrap.sh "--sdk=$SDK"
-          du -sh build_osx "build-$SDK"
+          du -sh build_osx build-"$SDK"*
+          if [ "$SDK" = iphonesimulator ]; then
+            for arch in arm64 x86_64; do
+              grep -Fx "LLVM_HOST_TRIPLE:STRING=$arch-apple-ios14.0-simulator" "build-iphonesimulator-$arch/CMakeCache.txt"
+            done
+          fi
           df -h .
           (
             cd "build-$SDK/build/Release-$SDK" || exit 1
-            tar -czf "$GITHUB_WORKSPACE/$SDK.tar.gz" ./*.framework
+            tar -czf "$GITHUB_WORKSPACE/$SDK.tar.gz" ar.framework lld.framework llc.framework clang.framework dis.framework libLLVM.framework link.framework lli.framework nm.framework opt.framework lldb.framework
           )
       - uses: actions/upload-artifact@v7
         if: always()
@@ -120,8 +125,9 @@ jobs:
             echo '| xcframework | slice | archs |'
             echo '| --- | --- | --- |'
             for xcf in *.xcframework; do
-              [ -d "$xcf/ios-arm64" ] || exit 1
-              ls -d "$xcf"/ios-*-simulator >/dev/null
+              plutil -convert json -o - "$xcf/Info.plist" | jq -e '
+                [.AvailableLibraries[] | {id: .LibraryIdentifier, archs: (.SupportedArchitectures | sort)}] | sort_by(.id) ==
+                [{id: "ios-arm64", archs: ["arm64"]}, {id: "ios-arm64_x86_64-simulator", archs: ["arm64", "x86_64"]}]' >/dev/null
               plutil -convert json -o - "$xcf/Info.plist" | jq -r \
                 '.AvailableLibraries[] | [.LibraryIdentifier, .LibraryPath, (.SupportedArchitectures | sort | join(" "))] | @tsv' \
                 | while IFS=$'\t' read -r slice lib expected; do
@@ -129,6 +135,12 @@ jobs:
                     archs=$(lipo -archs "$bin")
                     actual=$(echo "$archs" | tr ' ' '\n' | sort | paste -sd ' ' -)
                     [ "$actual" = "$expected" ] || exit 1
+                    case "$slice" in ios-arm64) platform=2;; *) platform=7;; esac
+                    for arch in $expected; do
+                      otool -arch "$arch" -l "$bin" | awk -v expected="$platform" '
+                        $1 == "platform" { seen++; if ($2 != expected) bad=1 }
+                        END { exit (!seen || bad) }'
+                    done
                     echo "| $(basename "$xcf") | $slice | $archs |"
                     otool -L "$bin" >&2
                     if otool -L "$bin" | grep $'^\t' | grep -E '/opt/homebrew|/usr/local|/Users/runner'; then exit 1; fi

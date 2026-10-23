@@ -8,7 +8,6 @@ CLEAN=NO
 LLVM_SRCDIR=$(pwd)
 OSX_BUILDDIR=$(pwd)/build_osx
 IOS_BUILDDIR=$(pwd)/build-iphoneos
-SIM_BUILDDIR=$(pwd)/build-iphonesimulator
 
 echo "Downloading ios_system Framework:"
 IOS_SYSTEM_VER="v3.0.5"
@@ -206,6 +205,10 @@ popd
 fi
 
 if [ "$SDK" != iphoneos ]; then
+# Build each Simulator architecture separately before combining the frameworks.
+for sim_arch in arm64 x86_64; do
+SIM_BUILDDIR="$LLVM_SRCDIR/build-iphonesimulator-$sim_arch"
+case "$sim_arch" in arm64) llvm_arch=AArch64;; x86_64) llvm_arch=X86;; esac
 # Now, build for the simulator:
 echo "Compiling for the simulator:"
 if [ "$CLEAN" = YES ]; then
@@ -218,10 +221,12 @@ pushd $SIM_BUILDDIR
 cmake -G Ninja \
 -DLLVM_PARALLEL_LINK_JOBS="${LLVM_LINK_JOBS:-}" \
 -DLLVM_LINK_LLVM_DYLIB=ON \
--DLLVM_TARGET_ARCH=X86 \
+-DLLVM_TARGET_ARCH="$llvm_arch" \
+-DLLVM_HOST_TRIPLE="$sim_arch-apple-ios14.0-simulator" \
+-DCMAKE_OSX_ARCHITECTURES="$sim_arch" \
 -DLLVM_TARGETS_TO_BUILD="AArch64;X86;WebAssembly" \
 -DLLVM_ENABLE_PROJECTS='clang;lld;compiler-rt;lldb' \
--DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-apple-darwin19.6.0 \
+-DLLVM_DEFAULT_TARGET_TRIPLE="$sim_arch-apple-darwin19.6.0" \
 -DCMAKE_BUILD_TYPE=Release \
 -DLLVM_ENABLE_THREADS=OFF \
 -DLLVM_ENABLE_TERMINFO=OFF \
@@ -253,8 +258,8 @@ cmake -G Ninja \
 -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
 -DCOMPILER_RT_BUILD_XRAY=OFF \
 -DLIBOMP_LDFLAGS="-L lib/clang/18/lib/darwin -lclang_rt.cc_kext_ios" \
--DCMAKE_C_FLAGS="-target x86_64-apple-darwin19.6.0 -O2 -D_LIBCPP_STRING_H_HAS_CONST_OVERLOADS -DDONT_GET_PLUGIN_LOADER_OPTION -I${OSX_BUILDDIR}/include/ -I${OSX_BUILDDIR}/include/c++/v1/ -I${LLVM_SRCDIR} -mios-simulator-version-min=14.0  " \
--DCMAKE_CXX_FLAGS="-target x86_64-apple-darwin19.6.0 -O2 -D_LIBCPP_STRING_H_HAS_CONST_OVERLOADS  -DDONT_GET_PLUGIN_LOADER_OPTION -I${OSX_BUILDDIR}/include/  -I${LLVM_SRCDIR} -mios-simulator-version-min=14.0 " \
+-DCMAKE_C_FLAGS="-target $sim_arch-apple-darwin19.6.0 -O2 -D_LIBCPP_STRING_H_HAS_CONST_OVERLOADS -DDONT_GET_PLUGIN_LOADER_OPTION -I${OSX_BUILDDIR}/include/ -I${OSX_BUILDDIR}/include/c++/v1/ -I${LLVM_SRCDIR} -mios-simulator-version-min=14.0  " \
+-DCMAKE_CXX_FLAGS="-target $sim_arch-apple-darwin19.6.0 -O2 -D_LIBCPP_STRING_H_HAS_CONST_OVERLOADS  -DDONT_GET_PLUGIN_LOADER_OPTION -I${OSX_BUILDDIR}/include/  -I${LLVM_SRCDIR} -mios-simulator-version-min=14.0 " \
 -DCMAKE_MODULE_LINKER_FLAGS="-nostdlib -F${LLVM_SRCDIR}/ios_system.xcframework/ios-arm64_x86_64-simulator -O2 -framework ios_system -lobjc -lc -lc++ -mios-simulator-version-min=14.0 " \
 -DCMAKE_SHARED_LINKER_FLAGS="-nostdlib -F${LLVM_SRCDIR}/ios_system.xcframework/ios-arm64_x86_64-simulator -O2 -framework ios_system -lobjc -lc -lc++ -mios-simulator-version-min=14.0 " \
 -DCMAKE_EXE_LINKER_FLAGS="-nostdlib -F${LLVM_SRCDIR}/ios_system.xcframework/ios-arm64_x86_64-simulator -O2 -framework ios_system -lobjc -lc -lc++ -mios-simulator-version-min=14.0 -fwasm-exceptions " \
@@ -287,18 +292,30 @@ rm -rf frameworks.xcodeproj
 cp -r ../frameworks/frameworks.xcodeproj .
 # And then build the frameworks from these static libraries:
 # Somehow, -alltargets does not build all targets
-xcodebuild -project frameworks.xcodeproj -target libLLVM -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target ar -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target clang -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target opt -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target nm -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target dis -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target link -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lld -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lli -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target llc -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lldb -sdk iphonesimulator -arch x86_64 -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target libLLVM -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target ar -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target clang -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target opt -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target nm -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target dis -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target link -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target lld -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target lli -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target llc -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild -project frameworks.xcodeproj -target lldb -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
 popd
+
+done
+[ "$CLEAN" != YES ] || rm -rf "$LLVM_SRCDIR/build-iphonesimulator"
+SIM_FRAMEWORKS="$LLVM_SRCDIR/build-iphonesimulator/build/Release-iphonesimulator"
+mkdir -p "$SIM_FRAMEWORKS"
+for framework in ar lld llc clang dis libLLVM link lli nm opt lldb; do
+  rm -rf "$SIM_FRAMEWORKS/$framework.framework"
+  cp -R "$LLVM_SRCDIR/build-iphonesimulator-arm64/build/Release-iphonesimulator/$framework.framework" "$SIM_FRAMEWORKS/"
+  lipo -create "$LLVM_SRCDIR/build-iphonesimulator-arm64/build/Release-iphonesimulator/$framework.framework/$framework" \
+    "$LLVM_SRCDIR/build-iphonesimulator-x86_64/build/Release-iphonesimulator/$framework.framework/$framework" \
+    -output "$SIM_FRAMEWORKS/$framework.framework/$framework"
+done
 
 fi
 
