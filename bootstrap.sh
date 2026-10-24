@@ -30,6 +30,7 @@ SIM_SDKROOT=$(xcrun --sdk iphonesimulator --show-sdk-path)
 
 # Parse arguments
 SDK=all
+sim_archs=(arm64 x86_64)
 for i in "$@"
 do
 case $i in
@@ -39,6 +40,13 @@ case $i in
   ;;
   --sdk=iphoneos|--sdk=iphonesimulator)
     SDK=${i#--sdk=}
+  ;;
+  --sim-arch=arm64|--sim-arch=x86_64)
+    sim_archs=("${i#--sim-arch=}")
+  ;;
+  --sim-arch=*)
+    echo "Unsupported Simulator architecture: ${i#--sim-arch=}" >&2
+    exit 2
   ;;
   --sdk=*)
     echo "Unsupported SDK: ${i#--sdk=}" >&2
@@ -188,17 +196,17 @@ rm -rf frameworks.xcodeproj
 cp -r ../frameworks/frameworks.xcodeproj .
 # And then build the frameworks from these static libraries:
 # Somehow, -alltargets does not build all targets. 
-xcodebuild -project frameworks.xcodeproj -target libLLVM -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target ar -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target clang -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target opt -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target nm -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target dis -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target link -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lld -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lli -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target llc -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lldb -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target libLLVM -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target ar -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target clang -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target opt -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target nm -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target dis -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target link -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lld -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lli -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target llc -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lldb -sdk iphoneos -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
 # xcodebuild -project frameworks.xcodeproj -alltargets -sdk iphoneos -configuration Release -quiet
 popd
 
@@ -206,7 +214,7 @@ fi
 
 if [ "$SDK" != iphoneos ]; then
 # Build each Simulator architecture separately before combining the frameworks.
-for sim_arch in arm64 x86_64; do
+for sim_arch in "${sim_archs[@]}"; do
 SIM_BUILDDIR="$LLVM_SRCDIR/build-iphonesimulator-$sim_arch"
 case "$sim_arch" in arm64) llvm_arch=AArch64;; x86_64) llvm_arch=X86;; esac
 # Now, build for the simulator:
@@ -292,17 +300,17 @@ rm -rf frameworks.xcodeproj
 cp -r ../frameworks/frameworks.xcodeproj .
 # And then build the frameworks from these static libraries:
 # Somehow, -alltargets does not build all targets
-xcodebuild -project frameworks.xcodeproj -target libLLVM -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target ar -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target clang -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target opt -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target nm -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target dis -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target link -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lld -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lli -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target llc -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
-xcodebuild -project frameworks.xcodeproj -target lldb -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target libLLVM -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target ar -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target clang -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target opt -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target nm -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target dis -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target link -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lld -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lli -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target llc -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
+xcodebuild ${NINJA_JOBS:+-jobs "$NINJA_JOBS"} -project frameworks.xcodeproj -target lldb -sdk iphonesimulator -arch "$sim_arch" -configuration Release -quiet CODE_SIGNING_ALLOWED=NO
 popd
 
 done
@@ -311,10 +319,12 @@ SIM_FRAMEWORKS="$LLVM_SRCDIR/build-iphonesimulator/build/Release-iphonesimulator
 mkdir -p "$SIM_FRAMEWORKS"
 for framework in ar lld llc clang dis libLLVM link lli nm opt lldb; do
   rm -rf "$SIM_FRAMEWORKS/$framework.framework"
-  cp -R "$LLVM_SRCDIR/build-iphonesimulator-arm64/build/Release-iphonesimulator/$framework.framework" "$SIM_FRAMEWORKS/"
-  lipo -create "$LLVM_SRCDIR/build-iphonesimulator-arm64/build/Release-iphonesimulator/$framework.framework/$framework" \
-    "$LLVM_SRCDIR/build-iphonesimulator-x86_64/build/Release-iphonesimulator/$framework.framework/$framework" \
-    -output "$SIM_FRAMEWORKS/$framework.framework/$framework"
+  cp -R "$LLVM_SRCDIR/build-iphonesimulator-${sim_archs[0]}/build/Release-iphonesimulator/$framework.framework" "$SIM_FRAMEWORKS/"
+  if [ "${#sim_archs[@]}" -gt 1 ]; then
+    lipo -create "$LLVM_SRCDIR/build-iphonesimulator-arm64/build/Release-iphonesimulator/$framework.framework/$framework" \
+      "$LLVM_SRCDIR/build-iphonesimulator-x86_64/build/Release-iphonesimulator/$framework.framework/$framework" \
+      -output "$SIM_FRAMEWORKS/$framework.framework/$framework"
+  fi
 done
 
 fi

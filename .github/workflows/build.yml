@@ -26,13 +26,19 @@ defaults:
     shell: bash
 jobs:
   compile:
-    name: Compile ${{ matrix.sdk }}
+    name: Compile ${{ matrix.sdk }} ${{ matrix.arch }}
     runs-on: ${{ inputs.runner || 'macos-26-intel' }}
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        sdk: [iphoneos, iphonesimulator]
+        include:
+          - sdk: iphoneos
+            arch: arm64
+          - sdk: iphonesimulator
+            arch: arm64
+          - sdk: iphonesimulator
+            arch: x86_64
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,6 +50,7 @@ jobs:
       - name: Build frameworks
         env:
           SDK: ${{ matrix.sdk }}
+          TARGET_ARCH: ${{ matrix.arch }}
           NINJA_JOBS: ${{ inputs.runner == 'macos-26' && '2' || '3' }}
           LLVM_LINK_JOBS: 1
         run: |
@@ -56,53 +63,51 @@ jobs:
                 memory_pressure
                 df -h .
                 ps -axo pid=,rss=,comm= | sort -k2,2nr | awk 'NR <= 12'
-              } 2>&1 | tee -a "$GITHUB_WORKSPACE/$SDK-resources.txt" || true
+              } 2>&1 | tee -a "$GITHUB_WORKSPACE/$SDK-$TARGET_ARCH-resources.txt" || true
               sleep 60
             done
           ) &
           monitor_pid=$!
           trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
-          bash bootstrap.sh "--sdk=$SDK"
+          args=("--sdk=$SDK")
+          if [ "$SDK" = iphonesimulator ]; then args+=("--sim-arch=$TARGET_ARCH"); fi
+          nice -n 15 bash bootstrap.sh "${args[@]}"
           du -sh build_osx build-"$SDK"*
           if [ "$SDK" = iphonesimulator ]; then
-            for arch in arm64 x86_64; do
-              grep -Fx "LLVM_HOST_TRIPLE:STRING=$arch-apple-ios14.0-simulator" "build-iphonesimulator-$arch/CMakeCache.txt"
-            done
+            grep -Fx "LLVM_HOST_TRIPLE:STRING=$TARGET_ARCH-apple-ios14.0-simulator" "build-iphonesimulator-$TARGET_ARCH/CMakeCache.txt"
           fi
           df -h .
           (
             cd "build-$SDK/build/Release-$SDK" || exit 1
-            tar -czf "$GITHUB_WORKSPACE/$SDK.tar.gz" ar.framework lld.framework llc.framework clang.framework dis.framework libLLVM.framework link.framework lli.framework nm.framework opt.framework lldb.framework
+            tar -czf "$GITHUB_WORKSPACE/$SDK-$TARGET_ARCH.tar.gz" ar.framework lld.framework llc.framework clang.framework dis.framework libLLVM.framework link.framework lli.framework nm.framework opt.framework lldb.framework
           )
       - name: Preserve Simulator link inputs on failure
         if: failure() && matrix.sdk == 'iphonesimulator'
         run: |
           inputs=(frameworks ios_system.xcframework ios_error.h bootstrap.sh)
-          for arch in arm64 x86_64; do
-            for item in lib include frameworks.xcodeproj; do
-              path="build-iphonesimulator-$arch/$item"
-              if [ -e "$path" ]; then inputs+=("$path"); fi
-            done
+          for item in lib include frameworks.xcodeproj; do
+            path="build-iphonesimulator-${{ matrix.arch }}/$item"
+            if [ -e "$path" ]; then inputs+=("$path"); fi
           done
-          nice -n 15 tar -czf "$GITHUB_WORKSPACE/iphonesimulator-link-inputs.tar.gz" "${inputs[@]}"
+          nice -n 15 tar -czf "$GITHUB_WORKSPACE/iphonesimulator-${{ matrix.arch }}-link-inputs.tar.gz" "${inputs[@]}"
       - uses: actions/upload-artifact@v7
         if: failure() && matrix.sdk == 'iphonesimulator'
         with:
-          name: iphonesimulator-link-inputs
+          name: iphonesimulator-${{ matrix.arch }}-link-inputs
           retention-days: 7
           if-no-files-found: warn
-          path: iphonesimulator-link-inputs.tar.gz
+          path: iphonesimulator-${{ matrix.arch }}-link-inputs.tar.gz
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: resource-usage-${{ matrix.sdk }}
+          name: resource-usage-${{ matrix.sdk }}-${{ matrix.arch }}
           if-no-files-found: warn
-          path: ${{ matrix.sdk }}-resources.txt
+          path: ${{ matrix.sdk }}-${{ matrix.arch }}-resources.txt
       - uses: actions/upload-artifact@v7
         with:
-          name: llvm-${{ matrix.sdk }}
+          name: llvm-${{ matrix.sdk }}-${{ matrix.arch }}
           if-no-files-found: error
-          path: ${{ matrix.sdk }}.tar.gz
+          path: ${{ matrix.sdk }}-${{ matrix.arch }}.tar.gz
 
   build:
     name: Building xcframeworks
@@ -120,13 +125,18 @@ jobs:
           df -h .
       - name: Join framework slices
         run: |
-          for sdk in iphoneos iphonesimulator; do
-            mkdir -p "staging/$sdk"
-            tar -xzf "$sdk.tar.gz" -C "staging/$sdk"
+          for slice in iphoneos-arm64 iphonesimulator-arm64 iphonesimulator-x86_64; do
+            mkdir -p "staging/$slice"
+            tar -xzf "$slice.tar.gz" -C "staging/$slice"
           done
-          for framework in staging/iphoneos/*.framework; do
+          mkdir -p staging/iphonesimulator
+          for framework in staging/iphoneos-arm64/*.framework; do
             name=$(basename "$framework" .framework)
-            xcodebuild -create-xcframework -framework "$framework" \
+            cp -R "staging/iphonesimulator-arm64/$name.framework" staging/iphonesimulator/
+            lipo -create "staging/iphonesimulator-arm64/$name.framework/$name" \
+              "staging/iphonesimulator-x86_64/$name.framework/$name" \
+              -output "staging/iphonesimulator/$name.framework/$name"
+            nice -n 15 xcodebuild -create-xcframework -framework "$framework" \
               -framework "staging/iphonesimulator/$name.framework" -output "$name.xcframework"
             zip -rq "$name.xcframework.zip" "$name.xcframework"
           done
